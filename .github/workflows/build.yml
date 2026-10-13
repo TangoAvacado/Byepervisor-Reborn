@@ -1,0 +1,40 @@
+name: build
+
+on:
+  workflow_dispatch:
+  push:
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential git curl wget xz-utils file unzip
+
+      - name: sdk
+        run: |
+          git clone --recurse-submodules https://github.com/ps5-payload-dev/sdk.git "$HOME/sdk"
+          cd "$HOME/sdk"
+          head -40 README.md
+          make toolchain || make -C toolchain || true
+          make -j"$(nproc)"
+          test -f toolchain/prospero.mk
+
+      - name: payload
+        env:
+          PS5_PAYLOAD_SDK: /home/runner/sdk
+        run: |
+          make clean || true
+          make
+
+      - name: verify
+        run: ls -l byepervisor_reborn.elf
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: byepervisor_reborn-elf
+          path: byepervisor_reborn.elf
